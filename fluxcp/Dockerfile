@@ -1,7 +1,19 @@
 FROM php:8.2-apache
 
-# Install required PHP extensions
-RUN docker-php-ext-install mysqli pdo pdo_mysql gd iconv
+# Install system dependencies required by PHP extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpng-dev \
+        libjpeg-dev \
+        libfreetype6-dev \
+        libicu-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install mysqli pdo pdo_mysql iconv
+
+# Configure GD with freetype and jpeg support
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd
 
 # Set up the web root
 COPY . /var/www/html/
