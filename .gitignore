@@ -1,0 +1,27 @@
+# rAthena source (should be cloned separately, not tracked here)
+rathena/
+
+# FluxCP runtime data (generated at runtime)
+fluxcp/data/captcha/
+fluxcp/data/emblem/
+fluxcp/data/homun/
+fluxcp/data/items/
+fluxcp/data/itemshop/
+fluxcp/data/jobs/
+fluxcp/data/logs/
+fluxcp/data/monsters/
+fluxcp/data/npc/
+fluxcp/data/paypal/
+fluxcp/data/templates/
+fluxcp/data/tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log

@@ -1,50 +1,65 @@
-version: "3.7"
+###############################################################################
+# rAthena Docker Compose
+#
+# Edit the .env file to change passwords, ports, packet versions, etc.
+# All configurable values are parameterized via ${VAR:-default} syntax.
+###############################################################################
 
 services:
+    # -------------------------------------------------------------------------
+    # Database
+    # -------------------------------------------------------------------------
     db:
-        image: "mariadb:noble"
-        container_name: "rathena-db"
+        image: "${DB_IMAGE:-mariadb:noble}"
+        container_name: "${DB_CONTAINER_NAME:-rathena-db}"
         ports:
-            - "3306:3306" # allow DB connections from host
+            - "${DB_HOST_PORT:-3306}:3306"
         volumes:
-            - "rathenadb:/var/lib/mysql" # save database to local disk
-            - "../../sql-files/:/docker-entrypoint-initdb.d" # initialize db with ./sql-files
+            - rathenadb:/var/lib/mysql
+            - "${RATHENA_PATH:-../../sql-files/}:/docker-entrypoint-initdb.d"
         environment:
-            MYSQL_ROOT_PASSWORD: ragnarok
-            MYSQL_DATABASE: ragnarok
-            MYSQL_USER: ragnarok
-            MYSQL_PASSWORD: ragnarok
+            MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-ragnarok}"
+            MYSQL_DATABASE: "${DB_NAME:-ragnarok}"
+            MYSQL_USER: "${DB_USER:-ragnarok}"
+            MYSQL_PASSWORD: "${DB_PASSWORD:-ragnarok}"
+        restart: unless-stopped
 
+    # -------------------------------------------------------------------------
+    # Builder (compiles rAthena source)
+    # -------------------------------------------------------------------------
     builder:
         image: "rathena:local"
-        container_name: "rathena-builder"
+        container_name: "${BUILDER_CONTAINER_NAME:-rathena-builder}"
         command: "/rathena/tools/docker/builder.sh"
         volumes:
-            - "../..:/rathena" # mount git repo directory inside container
-            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt" # load db connection
-            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"   #localdev login-char relation
-            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"     #localdev char-map relation
-        init: true # helps with signal forwarding and process reaping
+            - "${RATHENA_SOURCE_PATH:-../..}:/rathena"
+            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt"
+            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"
+            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"
+        init: true
         tty: true
         stdin_open: true
         build:
             context: .
             dockerfile: Dockerfile
         environment:
-            BUILDER_CONFIGURE: "--enable-packetver=20211103"
+            BUILDER_CONFIGURE: "${BUILDER_CONFIGURE:---enable-packetver=20211103}"
 
+    # -------------------------------------------------------------------------
+    # Login Server
+    # -------------------------------------------------------------------------
     login:
         image: "rathena:local"
-        container_name: "rathena-login"
+        container_name: "${LOGIN_CONTAINER_NAME:-rathena-login}"
         command: sh -c "/bin/wait-for db:3306 -- /rathena/login-server"
         ports:
-            - "6900:6900" # login server
+            - "${LOGIN_HOST_PORT:-6900}:6900"
         volumes:
-            - "../..:/rathena" # mount git repo directory inside container
-            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt" # load db connection
-            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"   #localdev login-char relation
-            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"     #localdev char-map relation
-        init: true # helps with signal forwarding and process reaping
+            - "${RATHENA_SOURCE_PATH:-../..}:/rathena"
+            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt"
+            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"
+            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"
+        init: true
         tty: true
         stdin_open: true
         build:
@@ -52,18 +67,22 @@ services:
             dockerfile: Dockerfile
         depends_on:
             - db
+
+    # -------------------------------------------------------------------------
+    # Character Server
+    # -------------------------------------------------------------------------
     char:
         image: "rathena:local"
-        container_name: "rathena-char"
+        container_name: "${CHAR_CONTAINER_NAME:-rathena-char}"
         command: sh -c "/bin/wait-for db:3306 -- /rathena/char-server"
         ports:
-            - "6121:6121" # char server
+            - "${CHAR_HOST_PORT:-6121}:6121"
         volumes:
-            - "../..:/rathena" # mount git repo directory inside container
-            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt" # load db connection
-            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"   #localdev login-char relation
-            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"     #localdev char-map relation
-        init: true # helps with signal forwarding and process reaping
+            - "${RATHENA_SOURCE_PATH:-../..}:/rathena"
+            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt"
+            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"
+            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"
+        init: true
         tty: true
         stdin_open: true
         build:
@@ -71,18 +90,22 @@ services:
             dockerfile: Dockerfile
         depends_on:
             - login
+
+    # -------------------------------------------------------------------------
+    # Map Server
+    # -------------------------------------------------------------------------
     map:
         image: "rathena:local"
-        container_name: "rathena-map"
+        container_name: "${MAP_CONTAINER_NAME:-rathena-map}"
         command: sh -c "/bin/wait-for db:3306 -- /rathena/map-server"
         ports:
-            - "5121:5121" # map server
+            - "${MAP_HOST_PORT:-5121}:5121"
         volumes:
-            - "../..:/rathena" # mount git repo directory inside container
-            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt" # load db connection
-            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"   #localdev login-char relation
-            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"     #localdev char-map relation
-        init: true # helps with signal forwarding and process reaping
+            - "${RATHENA_SOURCE_PATH:-../..}:/rathena"
+            - "./asset/inter_conf.txt:/rathena/conf/import/inter_conf.txt"
+            - "./asset/char_conf.txt:/rathena/conf/import/char_conf.txt"
+            - "./asset/map_conf.txt:/rathena/conf/import/map_conf.txt"
+        init: true
         tty: true
         stdin_open: true
         build:
@@ -90,6 +113,42 @@ services:
             dockerfile: Dockerfile
         depends_on:
             - char
+
+    # -------------------------------------------------------------------------
+    # phpMyAdmin (web-based database management)
+    # -------------------------------------------------------------------------
+    phpmyadmin:
+        image: "${PHPMYADMIN_IMAGE:-phpmyadmin/phpmyadmin}"
+        container_name: "${PHPMYADMIN_CONTAINER_NAME:-rathena-phpmyadmin}"
+        ports:
+            - "${PHPMYADMIN_HOST_PORT:-8080}:80"
+        environment:
+            PMA_HOST: "db"
+            PMA_PORT: 3306
+            PMA_ARBITRARY: "${PHPMYADMIN_ARBITRARY:-0}"
+        depends_on:
+            - db
+
+    # -------------------------------------------------------------------------
+    # FluxCP (web-based control panel for rAthena)
+    # -------------------------------------------------------------------------
+    fluxcp:
+        image: "rathena-fluxcp:local"
+        container_name: "${FLUXCP_CONTAINER_NAME:-rathena-fluxcp}"
+        ports:
+            - "${FLUXCP_HOST_PORT:-80}:80"
+        volumes:
+            - "./fluxcp/config/application.php:/var/www/html/config/application.php"
+            - "./fluxcp/config/servers.php:/var/www/html/config/servers.php"
+        depends_on:
+            - db
+            - login
+            - char
+            - map
+        build:
+            context: ./fluxcp
+            dockerfile: Dockerfile
+        restart: unless-stopped
 
 volumes:
     rathenadb:
